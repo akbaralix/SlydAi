@@ -5,7 +5,7 @@ const PptxGenJS = require("pptxgenjs");
 const { MongoClient } = require("mongodb");
 const { Telegraf, Markup } = require("telegraf");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-import express from "express";
+const express = require("express");
 const app = express();
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
