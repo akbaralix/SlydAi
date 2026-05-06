@@ -5,7 +5,8 @@ const PptxGenJS = require("pptxgenjs");
 const { MongoClient } = require("mongodb");
 const { Telegraf, Markup } = require("telegraf");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-
+import express from "express";
+const app = express();
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
@@ -31,6 +32,14 @@ const BUSINESS_FLOW = [
   "Metrikalar va KPI",
   "Xulosa va tavsiyalar",
 ];
+
+app.get("/", (req, res) => {
+  res.send("Bot ishlga tushdi! ✅");
+});
+
+app.listen(3000, () => {
+  console.log("Server is running on port 3000");
+});
 
 if (!BOT_TOKEN || BOT_TOKEN === "telegram_bot_token_here") {
   throw new Error("BOT_TOKEN topilmadi. .env faylga qo'shing.");
