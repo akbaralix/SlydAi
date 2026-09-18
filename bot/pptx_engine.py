@@ -1,10 +1,11 @@
-﻿"""
+"""
 SlydAI Bot - PPTX Slide Deck Generator
 Generates native PowerPoint (.pptx) files styled dynamically according to the selected theme palette, fonts, and diverse layouts.
 """
 
 import asyncio
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -14,12 +15,95 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
 
-from slide_renderer import parse_theme_specs
+from config import PROMPTS_DIR
 
 logger = logging.getLogger(__name__)
 
 TEMP_PPTX_DIR = Path(__file__).parent / "temp_pptx"
 TEMP_PPTX_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def parse_theme_specs(theme_id: str) -> dict:
+    """Extract palette, fonts, and style details from theme README.md or PROMPT.md."""
+    readme_path = PROMPTS_DIR / theme_id / "README.md"
+    prompt_path = PROMPTS_DIR / theme_id / "PROMPT.md"
+    
+    specs = {
+        "theme_id": theme_id,
+        "bg": "#0B0B16",
+        "surface": "#15152A",
+        "border": "#2A2A45",
+        "primary": "#7C5CFF",
+        "heading_color": "#F4F3FF",
+        "body_color": "#C3C0DE",
+        "muted_color": "#807CA6",
+        "heading_font": "Sora",
+        "body_font": "Inter",
+        "is_dark": True,
+        "gradient": "",
+    }
+
+    content = ""
+    if readme_path.exists():
+        content += readme_path.read_text(encoding="utf-8")
+    if prompt_path.exists():
+        content += "\n" + prompt_path.read_text(encoding="utf-8")
+
+    if not content:
+        return specs
+
+    # Mode check
+    if re.search(r"Mode:\s*Light", content, re.IGNORECASE) or ("#FFFFFF" in content.upper() and "Background: white" in content):
+        specs["is_dark"] = False
+        specs["bg"] = "#FFFFFF"
+        specs["surface"] = "#F8FAFC"
+        specs["border"] = "#E2E8F0"
+        specs["heading_color"] = "#0F172A"
+        specs["body_color"] = "#334155"
+        specs["muted_color"] = "#64748B"
+
+    # Extract Palette table if present
+    for role, key in [
+        ("Background", "bg"),
+        ("Surface / panel", "surface"),
+        ("Border", "border"),
+        ("Primary accent", "primary"),
+        ("Heading text", "heading_color"),
+        ("Body text", "body_color"),
+        ("Muted text", "muted_color"),
+    ]:
+        m = re.search(rf"\|\s*{re.escape(role)}\s*\|\s*`?(#[0-9A-Fa-f]{{3,8}})`?\s*\|", content, re.IGNORECASE)
+        if m and m.group(1):
+            specs[key] = m.group(1).strip()
+
+    # Extract Fonts
+    hf_match = re.search(r"-\s*\*\*([^*\n\r]+)\*\*\s*\(heading", content, re.IGNORECASE)
+    if hf_match and hf_match.group(1):
+        specs["heading_font"] = hf_match.group(1).strip()
+    else:
+        hf2 = re.search(r"headlines in ['\"]?([A-Za-z\s]+)['\"]?", content, re.IGNORECASE)
+        if hf2 and hf2.group(1):
+            specs["heading_font"] = hf2.group(1).strip()
+
+    bf_match = re.search(r"-\s*\*\*([^*\n\r]+)\*\*\s*\((?:supporting|body)", content, re.IGNORECASE)
+    if bf_match and bf_match.group(1):
+        specs["body_font"] = bf_match.group(1).strip()
+    else:
+        bf2 = re.search(r"body (?:and labels )?in ['\"]?([A-Za-z\s]+)['\"]?", content, re.IGNORECASE)
+        if bf2 and bf2.group(1):
+            specs["body_font"] = bf2.group(1).strip()
+
+    # Determine gradient accents
+    if "aurora" in theme_id:
+        specs["gradient"] = "linear-gradient(135deg, #7C5CFF 0%, #36E0D0 50%, #FF7AC6 100%)"
+    elif "midnight" in theme_id:
+        specs["gradient"] = "linear-gradient(135deg, #2E6BFF 0%, #22D3EE 100%)"
+    elif "spark" in theme_id or "holo" in theme_id:
+        specs["gradient"] = "linear-gradient(135deg, #FF5E3A 0%, #FF2A6D 50%, #9B51E0 100%)"
+    elif specs.get("primary"):
+        specs["gradient"] = f"linear-gradient(135deg, {specs['primary']} 0%, {specs['primary']}AA 100%)"
+
+    return specs
 
 
 def _hex_to_rgb(hex_str: str) -> RGBColor:
