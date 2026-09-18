@@ -14,11 +14,13 @@ from config import CATEGORIES, THEME_DISPLAY_NAMES, MIN_SLIDES, MAX_SLIDES
 
 # ── Main Menu ─────────────────────────────────────────────────────────────────
 
-def main_menu_keyboard() -> ReplyKeyboardMarkup:
+def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     keyboard = [
         [KeyboardButton("🎨 Yangi Slayd Yaratish")],
         [KeyboardButton("📊 Mening Statistikam"), KeyboardButton("ℹ️ Yordam")],
     ]
+    if is_admin:
+        keyboard.append([KeyboardButton("👑 Admin Panel")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 
@@ -108,7 +110,6 @@ def after_generation_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🔄 Yangi Slayd Yaratish", callback_data="new_generation")],
         [InlineKeyboardButton("📤 Asosiy Menyu", callback_data="main_menu")],
         [InlineKeyboardButton("✨ Kanalga qo'shiling", url="https://slyd_ai")],
-
     ])
 
 
@@ -119,3 +120,49 @@ def limit_reached_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("📊 Statistikam", callback_data="my_stats")],
         [InlineKeyboardButton("🏠 Asosiy Menyu", callback_data="main_menu")],
     ])
+
+
+# ── Admin Keyboards ───────────────────────────────────────────────────────────
+
+def admin_main_keyboard() -> InlineKeyboardMarkup:
+    """Admin Panel Hub Keyboard."""
+    buttons = [
+        [
+            InlineKeyboardButton("📊 To'liq Statistika", callback_data="admin_stats"),
+            InlineKeyboardButton("📢 Xabar Yuborish", callback_data="admin_broadcast_prompt"),
+        ],
+        [
+            InlineKeyboardButton("🔍 Foydalanuvchini Qidirish", callback_data="admin_search_prompt"),
+            InlineKeyboardButton("👥 So'nggi Foydalanuvchilar", callback_data="admin_recent_users"),
+        ],
+        [
+            InlineKeyboardButton("⚡️ Tizim Holati", callback_data="admin_sys_info"),
+            InlineKeyboardButton("🔄 Yangilash", callback_data="admin_refresh"),
+        ],
+        [
+            InlineKeyboardButton("❌ Chiqish", callback_data="admin_close"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def admin_user_action_keyboard(target_id: int, is_blocked: bool) -> InlineKeyboardMarkup:
+    """Action buttons for a searched user."""
+    block_text = "🟢 Blokdan chiqarish" if is_blocked else "🔴 Bloklash"
+    buttons = [
+        [
+            InlineKeyboardButton(block_text, callback_data=f"adm_toggle_block:{target_id}"),
+            InlineKeyboardButton("🎁 +5 Limit berish", callback_data=f"adm_give_limit:{target_id}"),
+        ],
+        [
+            InlineKeyboardButton("◀️ Admin Panel", callback_data="admin_home"),
+        ]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def admin_cancel_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Bekor qilish", callback_data="admin_cancel")]
+    ])
+

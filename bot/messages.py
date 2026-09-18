@@ -14,7 +14,7 @@ def welcome_message(first_name: str, is_new: bool) -> str:
             f"━━━━━━━━━━━━━━━━━━━━━\n"
             f"✨ *Nima qila olaman?*\n"
             f"• 81 ta professional dizayn temasi\n"
-            f"• Gemini AI bilan slayd generatsiyasi\n"
+            f"• NUXTA AI bilan slayd generatsiyasi\n"
             f"• Kunlik {DAILY_LIMIT} ta bepul generatsiya\n"
             f"• Maksimal {MAX_SLIDES} ta slayd\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -143,7 +143,7 @@ def generating_message(topic: str, slide_count: int) -> str:
         f"⏳ *Slaydlar Yaratilmoqda\\.\\.\\.*\n\n"
         f"📌 Mavzu: _{_escape(topic)}_\n"
         f"📑 Slaydlar: *{slide_count} ta*\n\n"
-        f"🤖 Gemini AI ishlamoqda\\.\\.\\.\n"
+        f"🤖 NUXTA AI ishlamoqda\\.\\.\\.\n"
         f"Bu 15\\-40 soniya vaqt olishi mumkin\\. Iltimos kuting\\."
     )
 
@@ -167,6 +167,63 @@ def error_message(detail: str = "") -> str:
     if detail:
         msg += f"\n\n`{_escape(detail[:100])}`"
     return msg
+
+
+def admin_dashboard_message(stats: dict) -> str:
+    top_themes_str = ""
+    for i, t in enumerate(stats.get("top_themes", []), 1):
+        top_themes_str += f"  {i}\\. `{_escape(t['_id'])}`: *{t['count']} marta*\n"
+    if not top_themes_str:
+        top_themes_str = "  _Hozircha ma'lumot yo'q_\n"
+
+    return (
+        f"👑 *SlydAI — Boshqaruv Paneli \\(Admin\\)*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"👥 *Foydalanuvchilar:*\n"
+        f"  • Jami a'zolar: *{stats['total_users']} ta*\n"
+        f"  • Bugun qo'shilgan: *+{stats['users_today']} ta*\n"
+        f"  • 7 kun ichida: *+{stats['users_week']} ta*\n"
+        f"  • 30 kun ichida: *+{stats['users_month']} ta*\n"
+        f"  • Faol \\(bugun\\): *{stats['active_today']} kishi*\n"
+        f"  • Bloklanganlar: *{stats['blocked_users']} ta*\n\n"
+        f"🎞 *Prezentatsiyalar \\(Generatsiyalar\\):*\n"
+        f"  • Jami yaratilgan: *{stats['total_gens']} ta*\n"
+        f"  • Bugun: *+{stats['gens_today']} ta*\n"
+        f"  • 7 kun ichida: *+{stats['gens_week']} ta*\n"
+        f"  • 30 kun ichida: *+{stats['gens_month']} ta*\n"
+        f"  • O'rtacha slayd soni: *{stats['avg_slides']} ta*\n\n"
+        f"🔥 *Eng mashhur temalar:*\n"
+        f"{top_themes_str}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"Quyidagi bo'limlardan birini tanlang 👇"
+    )
+
+
+def admin_user_info_message(user: dict, stats: dict) -> str:
+    joined = user.get("joined_at")
+    joined_str = joined.strftime("%d.%m.%Y %H:%M") if joined else "—"
+    last_seen = user.get("last_seen")
+    last_seen_str = last_seen.strftime("%d.%m.%Y %H:%M") if last_seen else "—"
+    is_blocked = "🔴 Bloklangan" if user.get("is_blocked", False) else "🟢 Faol"
+
+    username = f"@{user.get('username')}" if user.get("username") else "Mavjud emas"
+    full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+
+    return (
+        f"👤 *Foydalanuvchi ma'lumotlari:*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 ID: `{user.get('telegram_id')}`\n"
+        f"🏷 Ism: *{_escape(full_name)}*\n"
+        f"🔗 Username: {_escape(username)}\n"
+        f"🛡 Holat: {is_blocked}\n"
+        f"🎁 Qo'shimcha limit: `+{user.get('bonus_limit', 0)}`\n"
+        f"📅 Ro'yxatdan o'tgan: `{joined_str}`\n"
+        f"🕒 Oxirgi faollik: `{last_seen_str}`\n\n"
+        f"📊 *Generatsiya statistikasi:*\n"
+        f"• Jami yaratgan: *{user.get('total_generations', 0)} ta*\n"
+        f"• Bugungi foydalanish: *{stats.get('used_today', 0)} ta*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━"
+    )
 
 
 def _escape(text: str) -> str:

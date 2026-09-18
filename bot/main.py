@@ -23,6 +23,7 @@ from config import BOT_TOKEN
 from database import db
 from handlers import (
     cmd_start,
+    cmd_admin,
     cmd_stats,
     cmd_help,
     cmd_cancel,
@@ -111,6 +112,7 @@ def main():
 
     # ── Command Handlers ──────────────────────────────────────────────────────
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("cancel", cmd_cancel))

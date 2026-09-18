@@ -13,6 +13,12 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/slydai")
 
+# Admin Telegram IDs (list of ints)
+raw_admins = os.getenv("ADMIN_IDS", "907402803")
+ADMIN_IDS = [int(x.strip()) for x in raw_admins.split(",") if x.strip().isdigit()]
+if 907402803 not in ADMIN_IDS:
+    ADMIN_IDS.append(907402803)
+
 # ── Limits ────────────────────────────────────────────────────────────────────
 DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", 2))
 MAX_SLIDES = 20
@@ -30,7 +36,10 @@ PROMPTS_DIR = BASE_DIR.parent / "themes" / "presentation-design-prompts" / "prom
     STATE_CHOOSE_SLIDES,
     STATE_ENTER_TOPIC,
     STATE_GENERATING,
-) = range(6)
+    STATE_ADMIN_BROADCAST,
+    STATE_ADMIN_SEARCH_USER,
+    STATE_ADMIN_GIVE_LIMIT,
+) = range(9)
 
 # ── Theme Categories ──────────────────────────────────────────────────────────
 CATEGORIES = {
