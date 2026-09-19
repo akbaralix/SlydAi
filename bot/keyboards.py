@@ -109,7 +109,7 @@ def after_generation_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔄 Yangi Slayd Yaratish", callback_data="new_generation")],
         [InlineKeyboardButton("📤 Asosiy Menyu", callback_data="main_menu")],
-        [InlineKeyboardButton("✨ Kanalga qo'shiling", url="https://t.me/slyd_ai")],
+        [InlineKeyboardButton("✨ Kanalimizga qo'shiling", url="https://t.me/+s2k3oq6H1tk4ZmFi")],
     ])
 
 
