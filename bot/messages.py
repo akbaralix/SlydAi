@@ -143,7 +143,7 @@ def generating_message(topic: str, slide_count: int) -> str:
         f"⏳ *Slaydlar Yaratilmoqda\\.\\.\\.*\n\n"
         f"📌 Mavzu: _{_escape(topic)}_\n"
         f"📑 Slaydlar: *{slide_count} ta*\n\n"
-        f"🤖 NUXTA AI ishlamoqda\\.\\.\\.\n"
+        f"🤖 SLYD AI ishlamoqda\\.\\.\\.\n"
         f"Bu 15\\-40 soniya vaqt olishi mumkin\\. Iltimos kuting\\."
     )
 

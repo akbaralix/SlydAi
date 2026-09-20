@@ -1,4 +1,4 @@
-﻿"""
+"""
 SlydAI Bot - AI Slide Generation Engine (Gemini)
 """
 
@@ -25,55 +25,79 @@ def _load_theme_prompt(theme_id: str) -> str:
     return f"Create a presentation in the '{theme_id}' theme."
 
 
-def _build_system_instruction(theme_id: str) -> str:
-    theme_prompt = _load_theme_prompt(theme_id)
-    return f"""You are SlydAI — an expert presentation designer, industry analyst, and professional content writer.
-Your goal is to create rich, meaningful, in-depth, and well-structured slide decks that strictly adhere to the chosen theme design and the user's topic.
+def _clean_text(text: str) -> str:
+    """Strip HTML tags (e.g. <span>, <div>, CSS styles) and unescape HTML entities."""
+    if not text:
+        return ""
+    # Strip HTML tags
+    cleaned = re.sub(r"<[^>]+>", "", text)
+    # Replace common HTML entities
+    cleaned = cleaned.replace("&amp;", "&").replace("&quot;", '"').replace("&lt;", "<").replace("&gt;", ">").replace("&#39;", "'").replace("&nbsp;", " ")
+    return cleaned.strip()
 
-DESIGN THEME RULES (Follow every detail):
+
+def _build_system_instruction(theme_id: str, topic: str = "") -> str:
+    theme_prompt = _load_theme_prompt(theme_id)
+    return f"""You are SlydAI — a world-class executive presentation designer, senior strategy consultant, and university-level subject matter expert.
+Your mission is to generate deeply informative, professional, comprehensive, and intellectually rich presentation slide decks.
+
+CHOSEN DESIGN THEME CONTEXT:
 {theme_prompt}
 
-LANGUAGE REQUIREMENT:
-- Write 100% in the exact language of the user's topic (if Uzbek, write rich and natural Uzbek; if Russian, Russian; if English, English).
+CRITICAL RULES FOR CONTENT DEPTH & QUALITY:
+1. LANGUAGE:
+   - Output 100% in the EXACT language of the user's topic (e.g. if Uzbek, write in rich, fluent, grammatically flawless Uzbek; if Russian, professional Russian; if English, executive English).
 
-CONTENT & DEPTH REQUIREMENTS:
-- Do NOT write brief, empty or generic 2-word bullet points.
-- Provide deep, meaningful, educational, and high-value points.
-- Each bullet point must be informative, containing clear explanations, concrete facts, examples, data points, or strategic insights (15-30 words per point).
-- Slide 1: Powerful Main Title and a rich, captivating Subtitle.
-- Slide 2: Comprehensive Agenda / Table of Contents outlining the whole presentation journey.
-- Middle Slides: Logical breakdown of the topic with structured arguments, analysis, benefits, step-by-step methodologies, and examples.
-- Final Slide: Strong Conclusion, Key Takeaways, Actionable Next Steps or Call-to-Action.
+2. DEPTH & SUBSTANCE (VERY IMPORTANT):
+   - NEVER generate generic, superficial, short, or hollow bullet points.
+   - Every single slide must provide concrete, high-value, educational, or strategic insights.
+   - Each bullet point MUST have a bold lead title/concept followed by a detailed, 2-3 sentence factual explanation (30 to 60 words per bullet point) containing specific methodologies, practical examples, metrics, or causal explanations.
+   - STRICTLY PROHIBITED: DO NOT output any HTML tags (e.g. NO <span style="...">, NO <div>, NO <font>), and NO CSS styling in the text. Output pure, clean plain text only. Use only markdown **Bold Keyword** for lead keywords.
 
-OUTPUT FORMAT RULES (Strictly raw text format):
-- Return ONLY raw slide data in the exact format below — no markdown code fences, no extra preamble.
-- Format for each slide:
-=== SLIDE N ===
-TITLE: <Specific, punchy, professional title>
-SUBTITLE: <Insightful context or subtitle>
+3. SLIDE DECK ARCHITECTURE:
+   - Slide 1 (Cover): TITLE MUST BE STRICTLY AND EXACTLY THE GIVEN USER TOPIC (do not add extra words or change it). SUBTITLE: An insightful, inspiring subtitle explaining the core essence.
+   - Slide 2 (Agenda / Reja): A comprehensive, structured breakdown of the presentation's core pillars with descriptive titles.
+   - Content Slides (Slides 3 to N-1): Deep dive into fundamental concepts, analytical comparisons, practical implementations, statistics/data points, challenges and strategic solutions.
+   - Final Slide (Conclusion / Action Plan): Definitive conclusions, strategic takeaways, and clear 3-step actionable recommendations.
+
+4. EXACT OUTPUT FORMAT (Raw text format only — no markdown backticks ```, no HTML, no preamble):
+=== SLIDE 1 ===
+TITLE: {topic if topic else "<User Topic>"}
+SUBTITLE: <Insightful Subtitle>
 CONTENT:
-• <In-depth, detailed, meaningful bullet point 1>
-• <In-depth, detailed, meaningful bullet point 2>
-• <In-depth, detailed, meaningful bullet point 3>
-• <In-depth, detailed, meaningful bullet point 4>
-SPEAKER_NOTES: <2-3 sentences of deep speaker insight explaining this slide>
+• **<Key Concept 1>:** <In-depth detailed explanation with facts, metrics, and insights (30-60 words)>
+• **<Key Concept 2>:** <In-depth detailed explanation with facts, metrics, and insights (30-60 words)>
+• **<Key Concept 3>:** <In-depth detailed explanation with facts, metrics, and insights (30-60 words)>
+SPEAKER_NOTES: <3-4 sentences of deep presenter commentary explaining the core message of this slide>
 
-(Separate each slide with a blank line)"""
+=== SLIDE 2 ===
+TITLE: <Agenda Title>
+SUBTITLE: <Agenda Subtitle>
+CONTENT:
+• **01. <Pillar 1>:** <Brief summary of what this section covers>
+• **02. <Pillar 2>:** <Brief summary of what this section covers>
+• **03. <Pillar 3>:** <Brief summary of what this section covers>
+• **04. <Pillar 4>:** <Brief summary of what this section covers>
+SPEAKER_NOTES: <Presenter overview for the agenda>
+
+(Repeat for all remaining slides up to the requested slide count)"""
 
 
 def _build_user_prompt(topic: str, slide_count: int) -> str:
     return (
-        f"Generate a comprehensive, high-quality, professional presentation with exactly {slide_count} slides.\n\n"
+        f"Generate an extensive, highly informative, professional presentation deck with EXACTLY {slide_count} slides.\n\n"
         f"PRESENTATION TOPIC: {topic}\n\n"
-        f"INSTRUCTIONS:\n"
-        f"1. Language: Write in the EXACT language of '{topic}'.\n"
-        f"2. Detail: Provide rich, substantive, full sentences and meaningful explanations in all bullets.\n"
-        f"3. Structure: Slide 1 = Title/Cover, Slide 2 = Agenda, Slides 3 to {slide_count-1} = Deep Topic Exploration, Slide {slide_count} = Summary & Actionable Conclusion."
+        f"REQUIREMENTS:\n"
+        f"1. Slide 1 (Cover) TITLE: Must be EXACTLY '{topic}'. Do not alter or add words to the main title.\n"
+        f"2. Language: Write 100% in the language of '{topic}'.\n"
+        f"3. Content Volume & Richness: Provide deep, analytical, highly informative text in every bullet point. Each bullet must follow the format '• **<Lead Title>:** <Detailed 30-60 words explanation>'.\n"
+        f"4. No HTML tags: NEVER include <span style=...>, <div>, or any HTML tags.\n"
+        f"5. Exactly {slide_count} slides from Cover (Slide 1) to Strategic Conclusion (Slide {slide_count})."
     )
 
 
-def _parse_slides(raw: str) -> list[dict]:
-    """Parse Gemini output into a list of slide dicts."""
+def _parse_slides(raw: str, topic: str = "") -> list[dict]:
+    """Parse Gemini output into a list of slide dicts with structured bullets."""
     slides = []
     blocks = re.split(r"===\s*SLIDE\s*\d+\s*===", raw, flags=re.IGNORECASE)
 
@@ -90,23 +114,56 @@ def _parse_slides(raw: str) -> list[dict]:
             )
             return match.group(1).strip() if match else ""
 
-        title = extract("TITLE", block)
-        subtitle = extract("SUBTITLE", block)
+        title = _clean_text(extract("TITLE", block))
+        subtitle = _clean_text(extract("SUBTITLE", block))
         content = extract("CONTENT", block)
-        notes = extract("SPEAKER_NOTES", block)
+        notes = _clean_text(extract("SPEAKER_NOTES", block))
+
+        # Ensure Slide 1 title is strictly the user topic if available
+        if len(slides) == 0 and topic:
+            title = _clean_text(topic)
 
         # Clean content bullets
-        content_lines = [
-            line.strip().lstrip("•-*0123456789.) ").strip()
+        raw_lines = [
+            _clean_text(line.strip().lstrip("•-*0123456789.) ").strip())
             for line in content.splitlines()
             if line.strip() and not line.strip().startswith(("SPEAKER", "SUBTITLE", "TITLE"))
         ]
 
+        bullets = []
+        structured_bullets = []
+        for line in raw_lines:
+            if len(line) < 3:
+                continue
+            bullets.append(line)
+            
+            # Parse lead (bold header) and body
+            # Matches **Lead:** Body or Lead: Body
+            m_bold = re.match(r"^\*\*(.*?)\*\*:?\s*(.*)$", line)
+            if m_bold:
+                lead = _clean_text(m_bold.group(1).strip())
+                body = _clean_text(m_bold.group(2).strip())
+            else:
+                m_colon = re.match(r"^([^:]{3,40}):\s+(.*)$", line)
+                if m_colon:
+                    lead = _clean_text(m_colon.group(1).strip())
+                    body = _clean_text(m_colon.group(2).strip())
+                else:
+                    lead = ""
+                    body = _clean_text(line)
+
+            structured_bullets.append({
+                "raw": line,
+                "lead": lead,
+                "body": body if body else lead,
+            })
+
         slides.append({
-            "index": i,
-            "title": title or f"Slide {i}",
+            "index": len(slides) + 1,
+            "title": title or f"Slide {len(slides) + 1}",
             "subtitle": subtitle,
-            "bullets": [b for b in content_lines if len(b) > 2],
+            "bullets": bullets,
+            "structured_bullets": structured_bullets,
             "notes": notes,
         })
 
@@ -163,7 +220,7 @@ async def generate_slides(
 
     model = genai.GenerativeModel(
         model_name=GEMINI_MODEL,
-        system_instruction=_build_system_instruction(theme_id),
+        system_instruction=_build_system_instruction(theme_id, topic),
         generation_config=genai.GenerationConfig(
             temperature=0.8,
             top_p=0.95,
@@ -178,7 +235,7 @@ async def generate_slides(
     response = await model.generate_content_async(user_prompt)
     raw = response.text
 
-    slides = _parse_slides(raw)
+    slides = _parse_slides(raw, topic)
 
     if not slides:
         logger.warning("⚠️ Slide parsing failed — returning raw text")
