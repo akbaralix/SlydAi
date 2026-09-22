@@ -51,7 +51,8 @@ CRITICAL RULES FOR CONTENT DEPTH & QUALITY:
 2. DEPTH & SUBSTANCE (VERY IMPORTANT):
    - NEVER generate generic, superficial, short, or hollow bullet points.
    - Every single slide must provide concrete, high-value, educational, or strategic insights.
-   - Each bullet point MUST have a bold lead title/concept followed by a detailed, 2-3 sentence factual explanation (30 to 60 words per bullet point) containing specific methodologies, practical examples, metrics, or causal explanations.
+   - Each bullet point MUST have a bold lead title/concept followed by one concise, factual explanation (18 to 32 words). Prefer a concrete example, metric, method, or causal insight over filler.
+   - Every slide must add a distinct idea. Never repeat the same point, sentence, or example elsewhere on the slide.
    - STRICTLY PROHIBITED: DO NOT output any HTML tags (e.g. NO <span style="...">, NO <div>, NO <font>), and NO CSS styling in the text. Output pure, clean plain text only. Use only markdown **Bold Keyword** for lead keywords.
 
 3. SLIDE DECK ARCHITECTURE:
@@ -90,9 +91,24 @@ def _build_user_prompt(topic: str, slide_count: int) -> str:
         f"REQUIREMENTS:\n"
         f"1. Slide 1 (Cover) TITLE: Must be EXACTLY '{topic}'. Do not alter or add words to the main title.\n"
         f"2. Language: Write 100% in the language of '{topic}'.\n"
-        f"3. Content Volume & Richness: Provide deep, analytical, highly informative text in every bullet point. Each bullet must follow the format '• **<Lead Title>:** <Detailed 30-60 words explanation>'.\n"
+        f"3. Content Volume & Richness: Provide deep but presentation-ready text. Each bullet must follow the format '• **<Lead Title>:** <One concise 18-32 word explanation with a concrete insight>'. Do not repeat ideas within a slide.\n"
         f"4. No HTML tags: NEVER include <span style=...>, <div>, or any HTML tags.\n"
         f"5. Exactly {slide_count} slides from Cover (Slide 1) to Strategic Conclusion (Slide {slide_count})."
+    )
+
+
+def _build_continuation_prompt(topic: str, start_slide: int, end_slide: int) -> str:
+    """Ask for only the slides omitted from an incomplete model response."""
+    return (
+        "The previous response was incomplete. Continue the same presentation; do not "
+        "repeat its cover or agenda.\n\n"
+        f"PRESENTATION TOPIC: {topic}\n"
+        f"Return EXACTLY the missing slides {start_slide} through {end_slide}, inclusive.\n"
+        "Use the required raw format for every slide:\n"
+        "=== SLIDE <number> ===\nTITLE: ...\nSUBTITLE: ...\nCONTENT: ...\n"
+        "SPEAKER_NOTES: ...\n\n"
+        "Start at the first missing slide and stop after the final missing slide. "
+        "Do not include a preamble, cover, agenda, or any repeated slides."
     )
 
 
@@ -224,7 +240,9 @@ async def generate_slides(
         generation_config=genai.GenerationConfig(
             temperature=0.8,
             top_p=0.95,
-            max_output_tokens=8192,
+            # A 20-slide deck with substantive content can exceed 8K tokens.
+            # The old limit was the main reason Gemini stopped after ~5 slides.
+            max_output_tokens=32768,
         ),
     )
 
@@ -236,6 +254,32 @@ async def generate_slides(
     raw = response.text
 
     slides = _parse_slides(raw, topic)
+
+    # LLMs can still stop early despite the requested count.  Complete the deck
+    # instead of silently exporting a shorter presentation.
+    while slides and len(slides) < slide_count:
+        start_slide = len(slides) + 1
+        continuation = await model.generate_content_async(
+            _build_continuation_prompt(topic, start_slide, slide_count)
+        )
+        continuation_raw = continuation.text
+        extra_slides = _parse_slides(continuation_raw)
+        if not extra_slides:
+            logger.warning(
+                "Gemini continuation returned no parsable slides (needed %d-%d)",
+                start_slide,
+                slide_count,
+            )
+            break
+
+        remaining = slide_count - len(slides)
+        slides.extend(extra_slides[:remaining])
+        raw += "\n\n" + continuation_raw
+
+    # Do not export more slides than the user selected if the model overshoots.
+    slides = slides[:slide_count]
+    for index, slide in enumerate(slides, start=1):
+        slide["index"] = index
 
     if not slides:
         logger.warning("⚠️ Slide parsing failed — returning raw text")

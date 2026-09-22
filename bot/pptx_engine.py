@@ -12,7 +12,7 @@ from typing import Optional, Any
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR, MSO_AUTO_SIZE
 from pptx.enum.shapes import MSO_SHAPE
 
 from config import PROMPTS_DIR
@@ -185,6 +185,35 @@ def _set_box_margins(tf, top_pt=8, bottom_pt=8, left_pt=12, right_pt=12):
     tf.margin_right = Pt(right_pt)
 
 
+def _presentation_items(items: list[dict], max_body_words: int = 32) -> list[dict]:
+    """Remove repeated points and keep each card readable at presentation size."""
+    result = []
+    seen = set()
+
+    for item in items:
+        lead = _clean_text(item.get("lead", ""))
+        body_words = _clean_text(item.get("body", "")).split()
+        body = " ".join(body_words[:max_body_words])
+        if len(body_words) > max_body_words:
+            body += "…"
+
+        fingerprint = re.sub(r"\W+", "", f"{lead} {body}".lower())
+        if not fingerprint or fingerprint in seen:
+            continue
+        seen.add(fingerprint)
+        result.append({"lead": lead, "body": body})
+
+    return result
+
+
+def _prepare_card_text_frame(tf, top_pt=12, bottom_pt=10, left_pt=20, right_pt=18):
+    """Apply safe text settings so card content stays within its bounds."""
+    tf.word_wrap = True
+    tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    tf.vertical_anchor = MSO_ANCHOR.TOP
+    _set_box_margins(tf, top_pt, bottom_pt, left_pt, right_pt)
+
+
 def _add_styled_bullet_paragraph(
     tf,
     lead: str,
@@ -279,6 +308,10 @@ def create_presentation_file(slides: list[dict], theme_id: str, topic: str = "")
                         structured_bullets.append({"lead": _clean_text(m_c.group(1)), "body": _clean_text(m_c.group(2))})
                     else:
                         structured_bullets.append({"lead": "", "body": clean_b})
+
+        # Cards use concise, unique points. This prevents repeated content in
+        # two columns and avoids text running outside a card.
+        structured_bullets = _presentation_items(structured_bullets)
 
         slide = prs.slides.add_slide(blank_slide_layout)
 
@@ -442,8 +475,7 @@ def create_presentation_file(slides: list[dict], theme_id: str, topic: str = "")
 
                 # Content Text Frame inside Card
                 card_tf = card.text_frame
-                card_tf.word_wrap = True
-                _set_box_margins(card_tf, top_pt=14, bottom_pt=10, left_pt=78, right_pt=16)
+                _prepare_card_text_frame(card_tf, top_pt=14, bottom_pt=10, left_pt=78, right_pt=16)
                 
                 lead_t = _clean_text(item.get("lead", "").strip()) or f"Yo'nalish 0{a_i+1}"
                 body_t = _clean_text(item.get("body", "").strip())
@@ -530,8 +562,7 @@ def create_presentation_file(slides: list[dict], theme_id: str, topic: str = "")
             card_lt.line.fill.background()
 
             tf_l = card_l.text_frame
-            tf_l.word_wrap = True
-            _set_box_margins(tf_l, top_pt=20, bottom_pt=14, left_pt=22, right_pt=22)
+            _prepare_card_text_frame(tf_l, top_pt=20, bottom_pt=14, left_pt=22, right_pt=22)
 
             p_lh = tf_l.paragraphs[0]
             p_lh.text = "01. Strategik Xulosa va Tahlil"
@@ -570,8 +601,7 @@ def create_presentation_file(slides: list[dict], theme_id: str, topic: str = "")
             card_rt.line.fill.background()
 
             tf_r = card_r.text_frame
-            tf_r.word_wrap = True
-            _set_box_margins(tf_r, top_pt=20, bottom_pt=14, left_pt=22, right_pt=22)
+            _prepare_card_text_frame(tf_r, top_pt=20, bottom_pt=14, left_pt=22, right_pt=22)
 
             p_rh = tf_r.paragraphs[0]
             p_rh.text = "02. Amaliy Harakatlar Rejasi"
@@ -643,7 +673,8 @@ def create_presentation_file(slides: list[dict], theme_id: str, topic: str = "")
                 
                 half = (len(structured_bullets) + 1) // 2
                 left_items = structured_bullets[:half]
-                right_items = structured_bullets[half:] if len(structured_bullets) > half else structured_bullets[:half]
+                # Do not mirror left-side content when there are too few points.
+                right_items = structured_bullets[half:]
 
                 # Left Column Box
                 card_l = slide.shapes.add_shape(
@@ -662,8 +693,7 @@ def create_presentation_file(slides: list[dict], theme_id: str, topic: str = "")
                 card_lt.line.fill.background()
 
                 tf_l = card_l.text_frame
-                tf_l.word_wrap = True
-                _set_box_margins(tf_l, top_pt=18, bottom_pt=14, left_pt=20, right_pt=20)
+                _prepare_card_text_frame(tf_l, top_pt=18, bottom_pt=14, left_pt=20, right_pt=20)
                 
                 p_lh = tf_l.paragraphs[0]
                 p_lh.text = "Asosiy Tushunchalar va Tahlil"
@@ -702,8 +732,7 @@ def create_presentation_file(slides: list[dict], theme_id: str, topic: str = "")
                 card_rt.line.fill.background()
 
                 tf_r = card_r.text_frame
-                tf_r.word_wrap = True
-                _set_box_margins(tf_r, top_pt=18, bottom_pt=14, left_pt=20, right_pt=20)
+                _prepare_card_text_frame(tf_r, top_pt=18, bottom_pt=14, left_pt=20, right_pt=20)
                 
                 p_rh = tf_r.paragraphs[0]
                 p_rh.text = "Amaliy Tatbiq va Strategik Natijalar"
@@ -762,8 +791,7 @@ def create_presentation_file(slides: list[dict], theme_id: str, topic: str = "")
                     side_accent.line.fill.background()
 
                     card_tf = card.text_frame
-                    card_tf.word_wrap = True
-                    _set_box_margins(card_tf, top_pt=12, bottom_pt=10, left_pt=20, right_pt=18)
+                    _prepare_card_text_frame(card_tf, top_pt=12, bottom_pt=10, left_pt=20, right_pt=18)
 
                     lead_t = _clean_text(item.get("lead", "").strip()) or f"Pillar 0{b_i+1}"
                     body_t = _clean_text(item.get("body", "").strip())
